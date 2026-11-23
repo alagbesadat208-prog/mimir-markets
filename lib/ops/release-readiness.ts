@@ -48,6 +48,11 @@
 
 import { createHash } from "node:crypto";
 
+import {
+  REVIEWED_SCRIPT_NAMES,
+  extractNpmScriptReferences,
+} from "./package-script-contract";
+
 export const RELEASE_READINESS_SCHEMA_VERSION = 1 as const;
 export const RELEASE_READINESS_KIND = "mimir-release-readiness" as const;
 
@@ -758,6 +763,55 @@ export function validateReleaseReadinessRegistry(): string[] {
     problems.push(
       "no live-evidence gates: the checklist would ignore the launch gate",
     );
+  }
+  return problems;
+}
+
+export interface ReleaseGateScriptContractOptions {
+  gates?: readonly ReleaseGate[];
+  scripts: Readonly<Record<string, unknown>>;
+  reviewedScripts?: ReadonlySet<string> | readonly string[];
+}
+
+/**
+ * Every `npm run <name>` in a release gate must exist in `package.json` and in
+ * the reviewed package-script contract. This includes chained commands: an
+ * unconfigured gate is a release failure, never an optional step to skip.
+ */
+export function validateReleaseGateScriptContract(
+  options: ReleaseGateScriptContractOptions,
+): string[] {
+  const problems: string[] = [];
+  const gates = options.gates ?? RELEASE_GATES;
+  const reviewedScripts = options.reviewedScripts
+    ? new Set<string>(options.reviewedScripts)
+    : new Set<string>(REVIEWED_SCRIPT_NAMES);
+
+  for (const gate of gates) {
+    const referencedScripts = new Set<string>(extractNpmScriptReferences(gate.command));
+    if (typeof gate.npmScript === "string" && gate.npmScript.trim() !== "") {
+      referencedScripts.add(gate.npmScript);
+    }
+
+    for (const name of referencedScripts) {
+      if (!Object.prototype.hasOwnProperty.call(options.scripts, name)) {
+        problems.push(
+          `gate "${gate.id}" requires npm script "${name}", which is missing from package.json; missing release commands are failures, not optional gates`,
+        );
+      } else if (
+        typeof options.scripts[name] !== "string" ||
+        options.scripts[name]!.trim() === ""
+      ) {
+        problems.push(
+          `gate "${gate.id}" requires npm script "${name}", but its package.json command is empty or invalid`,
+        );
+      }
+      if (!reviewedScripts.has(name)) {
+        problems.push(
+          `gate "${gate.id}" requires npm script "${name}", which is not in the reviewed package-script contract`,
+        );
+      }
+    }
   }
   return problems;
 }

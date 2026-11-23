@@ -30,6 +30,7 @@ import {
   formatReleaseReadinessReport,
   parseReleaseEvidence,
   serializeReleaseRecord,
+  validateReleaseGateScriptContract,
   validateReleaseReadinessRegistry,
   type ReleaseGateEvidence,
   type ReleaseGateId,
@@ -128,21 +129,12 @@ function selfCheck(): SelfCheck {
 
   problems.push(...validateReleaseReadinessRegistry());
 
-  // Every declared npm script must exist, or the doc tells a maintainer to run
-  // a command that no longer does anything.
   const pkg = JSON.parse(
     readFileSync(path.join(REPO_ROOT, "package.json"), "utf8"),
   ) as {
     scripts?: Record<string, string>;
   };
-  const scripts = pkg.scripts ?? {};
-  for (const gate of RELEASE_GATES) {
-    if (gate.npmScript && !(gate.npmScript in scripts)) {
-      problems.push(
-        `package.json has no script "${gate.npmScript}" required by "${gate.id}"`,
-      );
-    }
-  }
+  problems.push(...validateReleaseGateScriptContract({ scripts: pkg.scripts ?? {} }));
 
   // Every path a clean checkout needs must be tracked in the repo.
   for (const gate of RELEASE_GATES) {

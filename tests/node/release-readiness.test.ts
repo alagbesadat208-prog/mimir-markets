@@ -20,6 +20,7 @@ import {
   parseReleaseEvidence,
   releaseReadinessFingerprint,
   serializeReleaseRecord,
+  validateReleaseGateScriptContract,
   validateReleaseReadinessRegistry,
   type ReleaseEvidence,
 } from "../../lib/ops/release-readiness";
@@ -544,4 +545,81 @@ test("regression: the checklist stays offline — no gate reads env it should no
   const report = evaluateReleaseReadiness(evidence, { mode: "release" });
   assert.equal(report.ok, true);
   assert.equal(report.summary.passed, RELEASE_GATES.length);
+});
+
+test("positive: every release gate command is in package.json and the reviewed contract", () => {
+  const pkg = JSON.parse(
+    readFileSync(join(process.cwd(), "package.json"), "utf8"),
+  ) as { scripts?: Record<string, string> };
+  assert.deepEqual(
+    validateReleaseGateScriptContract({ scripts: pkg.scripts ?? {} }),
+    [],
+  );
+});
+
+test("negative: a missing chained release command fails closed", () => {
+  const gate = {
+    ...RELEASE_GATES[0]!,
+    id: "chained-gate",
+    command: "npm run alpha && npm run beta",
+    npmScript: "alpha",
+  };
+  const problems = validateReleaseGateScriptContract({
+    gates: [gate],
+    scripts: { alpha: "echo alpha" },
+    reviewedScripts: ["alpha", "beta"],
+  });
+  assert.deepEqual(problems, [
+    'gate "chained-gate" requires npm script "beta", which is missing from package.json; missing release commands are failures, not optional gates',
+  ]);
+});
+
+test("negative: a missing declared npmScript fails even without an npm run command", () => {
+  const gate = {
+    ...RELEASE_GATES[0]!,
+    id: "declared-only",
+    command: "echo no npm command here",
+    npmScript: "ghost",
+  };
+  const problems = validateReleaseGateScriptContract({
+    gates: [gate],
+    scripts: {},
+    reviewedScripts: ["ghost"],
+  });
+  assert.equal(problems.length, 1);
+  assert.match(problems[0]!, /requires npm script "ghost"/);
+});
+
+test("negative: an unreviewed release command fails closed", () => {
+  const gate = {
+    ...RELEASE_GATES[0]!,
+    id: "unreviewed-gate",
+    command: "npm run alpha && npm run beta",
+    npmScript: "alpha",
+  };
+  const problems = validateReleaseGateScriptContract({
+    gates: [gate],
+    scripts: { alpha: "echo alpha", beta: "echo beta" },
+    reviewedScripts: ["alpha"],
+  });
+  assert.deepEqual(problems, [
+    'gate "unreviewed-gate" requires npm script "beta", which is not in the reviewed package-script contract',
+  ]);
+});
+
+test("failure: an empty release script command fails closed", () => {
+  const gate = {
+    ...RELEASE_GATES[0]!,
+    id: "empty-script",
+    command: "npm run alpha",
+    npmScript: "alpha",
+  };
+  const problems = validateReleaseGateScriptContract({
+    gates: [gate],
+    scripts: { alpha: "   " },
+    reviewedScripts: ["alpha"],
+  });
+  assert.deepEqual(problems, [
+    'gate "empty-script" requires npm script "alpha", but its package.json command is empty or invalid',
+  ]);
 });

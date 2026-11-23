@@ -101,6 +101,11 @@ export const REVIEWED_PACKAGE_SCRIPTS: Readonly<Record<string, ReviewedScriptSpe
     category: "db",
     supportsArgForwarding: true,
   },
+  "verify:migration-rehearsal": {
+    command: "node --import tsx scripts/migration-rehearsal.ts",
+    category: "db",
+    supportsArgForwarding: true,
+  },
   "check:openapi": {
     command: "tsx scripts/generate-agent-openapi.ts",
     category: "quality",

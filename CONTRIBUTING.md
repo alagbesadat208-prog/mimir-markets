@@ -91,6 +91,7 @@ npm run build                # Production Next.js build
 npm run check:terms          # Forbidden-terms guardrail (alias: npm run lint)
 npm run check:toolchains     # Rust toolchain / MSRV / CI matrix parity
 npm run check:schema-snapshot # Postgres schema snapshot gate (-- --write to update)
+npm run verify:migration-rehearsal # Migration up/down rehearsal from a synthetic read-index snapshot
 npm run check:locales:strict # Locale completeness check (non-strict: npm run check:locales)
 npm run check:driver-parity  # CI path-scope parity check
 npm run check:openapi        # Agent OpenAPI contract check (-- --write to regenerate)

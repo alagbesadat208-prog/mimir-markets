@@ -33,6 +33,11 @@ A snapshot is valid only when the machine speaks `schemaVersion: 1`, uses
 `sha256`, and carries a 64-character lowercase-hex fingerprint. Garbage JSON is
 rejected rather than treated as verified.
 
+For the reversible migration rehearsal from a synthetic read-index snapshot,
+see [`docs/MIGRATIONS.md`](./MIGRATIONS.md#migration-rehearsal-report-synthetic-snapshots)
+and `npm run verify:migration-rehearsal`. It compares canonical fingerprints
+across up → down → reapply using isolated in-memory state.
+
 ## Failure behaviour
 
 The gate fails closed. `ok` is true only when there are zero error findings:

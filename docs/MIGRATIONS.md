@@ -46,6 +46,30 @@ All of the above default to `--fixture` (in-memory). They exit `0` on success
 and `1 ` on checksum / step failure. Nothing reads `DATABASE_URL` in fixture
 mode.
 
+## Migration rehearsal report (synthetic snapshots)
+
+The rehearsal gate ties the reversible migration chain to a synthetic
+read-index backup fixture and emits a privacy-safe report:
+
+```bash
+npm run verify:migration-rehearsal
+npm run verify:migration-rehearsal -- --json
+npm run verify:migration-rehearsal -- --snapshot tests/fixtures/cache-backup/valid.json
+```
+
+`lib/ops/migration-rehearsal.ts` verifies the snapshot schema, checksum, and
+privacy invariants, then applies the reviewed up → down → up paths in an
+isolated `MemoryMigrationStore`. It compares canonical snapshot, migration,
+statement, and state fingerprints; the state fingerprint after the final reapply
+must match the state after the first up migration. Failures in the snapshot,
+registry, checksum chain, transaction, down path, reapply, or round-trip
+comparison fail closed with machine-readable finding codes.
+
+The report contains fingerprints, applied versions, step summaries, and
+findings — never snapshot rows, addresses, `DATABASE_URL`, or secrets. It uses
+only tracked fixtures and in-memory state, so a clean checkout can run it
+without a database, network, or credentials.
+
 ---
 
 ## Live mode (Postgres)

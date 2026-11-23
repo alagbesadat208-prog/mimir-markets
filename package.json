@@ -25,6 +25,7 @@
     "check:lockfile": "git diff --exit-code package-lock.json",
     "check:toolchains": "tsx scripts/check-contract-toolchains.ts",
     "check:schema-snapshot": "tsx scripts/check-schema-snapshot.ts",
+    "verify:migration-rehearsal": "node --import tsx scripts/migration-rehearsal.ts",
     "check:openapi": "tsx scripts/generate-agent-openapi.ts",
     "check:api-fixtures": "node --import tsx scripts/check-api-contract-fixtures.ts",
     "check:trace": "tsx scripts/check-trace-correlation.ts",

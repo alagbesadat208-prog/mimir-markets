@@ -36,11 +36,13 @@ deploy/deploy.ts	Soroban build/deploy/initialize script
 deploy/contract-artifacts.manifest.json	Pinned Wasm digests for fail-closed provenance checks
 lib/ops/artifact-provenance.ts	Offline SHA-256 artifact provenance verifier
 lib/ops/cache-backup.ts	Offline read-index cache-backup verifier (checksum + privacy, no network)
+lib/ops/migration-rehearsal.ts	Offline migration up/down rehearsal report from synthetic read-index snapshots (canonical fingerprints, no secrets)
 lib/ops/dependency-audit.ts	Fail-closed npm audit triage (production high/critical, privacy-safe)
 lib/ops/proposal-triage.ts	Operator proposal backlog triage export (grouped by age & blocking reason, privacy-safe)
 lib/server/read-index-backup.ts	DB-backed read-index dump / verified restore (restore fingerprint check)
 scripts/verify-artifact-provenance.ts	CLI: verify or --write-pins contract artifacts
 scripts/verify-cache-backup.ts	CLI: offline cache-backup verification (npm run verify:cache-backup)
+scripts/migration-rehearsal.ts	CLI: migration rehearsal report (npm run verify:migration-rehearsal)
 scripts/verify-package-scripts.ts	CLI: verify package.json script contract against disk targets and CI/CONTRIBUTING docs (npm run verify:package-scripts)
 scripts/check-npm-audit.ts	CLI: triage npm audit --json (npm run audit:deps, no production secrets)
 scripts/backup-read-index.ts	CLI: dump the Neon read-index to a self-verified archive
@@ -91,10 +93,12 @@ environment behavior.
 | `deploy/contract-artifacts.manifest.json` | Pinned Wasm digests for fail-closed provenance checks |
 | `lib/ops/artifact-provenance.ts` | Offline SHA-256 artifact provenance verifier |
 | `lib/ops/cache-backup.ts` | Offline read-index cache-backup verifier (checksum + privacy, no network) |
+| `lib/ops/migration-rehearsal.ts` | Offline migration up/down rehearsal report from synthetic read-index snapshots (canonical fingerprints, no secrets) |
 | `lib/ops/package-script-contract.ts` | Offline `package.json` script contract verifier against disk targets, argument forwarding, and CI/CONTRIBUTING refs |
 | `lib/server/read-index-backup.ts` | DB-backed read-index dump / verified restore (restore fingerprint check) |
 | `scripts/verify-artifact-provenance.ts` | CLI: verify or `--write-pins` contract artifacts |
 | `scripts/verify-cache-backup.ts` | CLI: offline cache-backup verification (`npm run verify:cache-backup`) |
+| `scripts/migration-rehearsal.ts` | CLI: migration rehearsal report (`npm run verify:migration-rehearsal`) |
 | `scripts/verify-package-scripts.ts` | CLI: offline `package.json` script contract verification (`npm run verify:package-scripts`) |
 | `scripts/backup-read-index.ts` | CLI: dump the Neon read-index to a self-verified archive |
 | `scripts/restore-read-index.ts` | CLI: restore a verified archive and fingerprint-check the cache |
@@ -528,6 +532,24 @@ that change reviewable:
 - Every new table or index must ship with a `schema_migrations` registration; a
   schema with no registered migration fails `MIGRATION_UNREGISTERED`.
 - Policy: [`docs/SCHEMA_SNAPSHOTS.md`](./SCHEMA_SNAPSHOTS.md).
+
+## Migration rehearsal report (devx)
+
+`npm run verify:migration-rehearsal` (`scripts/migration-rehearsal.ts`,
+`lib/ops/migration-rehearsal.ts`) rehearses the reviewed migration chain from
+the synthetic read-index fixture:
+
+- **Verify** the backup envelope's schema, checksum, table allowlist, and
+  privacy rules before touching migration state.
+- **Rehearse** up → down → reapply in an isolated `MemoryMigrationStore`; never
+  read `DATABASE_URL`, connect to Postgres, or mutate live read-index tables.
+- **Compare** canonical snapshot, migration, per-phase statement, and state
+  fingerprints. The final reapply state must equal the first up state; a
+  checksum mismatch, transaction failure, or irreversible down path fails
+  closed.
+- **Report** fingerprints, applied versions, step summaries, and finding codes
+  only. The report never contains snapshot rows, addresses, or credentials.
+- **Policy**: [`docs/MIGRATIONS.md`](./MIGRATIONS.md#migration-rehearsal-report-synthetic-snapshots).
 
 ## Cross-tab wallet signing coordinator (`lib/wallet-signing-coordinator.ts`)
 
